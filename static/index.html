@@ -150,6 +150,7 @@
             <small id="verified-by"></small>
           </span>
           <button id="history-btn" class="quiet history-button" type="button">🕒 History</button>
+          <button id="users-stats-btn" class="quiet history-button" type="button">👥 Users</button>
           <button id="sign-out" class="quiet" type="button">Sign out</button>
         </span>
       </div>
@@ -375,6 +376,44 @@
     <small>Upload a video to create your first learning project!</small>
   </div>
   <div id="history-list" class="history-list"></div>
+</dialog>
+
+<!-- Admin & User Activity Stats Dialog -->
+<dialog id="stats-dialog" class="history-dialog stats-dialog">
+  <div class="history-dialog-header">
+    <div>
+      <p class="eyebrow">SITE TRAFFIC &amp; REAL-TIME METRICS</p>
+      <h2>Logged-In Users &amp; Activity</h2>
+    </div>
+    <button id="close-stats" class="close" type="button" aria-label="Close stats modal">×</button>
+  </div>
+
+  <div class="stats-overview-grid">
+    <div class="stat-box stat-highlight">
+      <span class="stat-pulse-dot"></span>
+      <span class="stat-value" id="stat-active-users">0</span>
+      <span class="stat-label">Online Logged In</span>
+    </div>
+    <div class="stat-box">
+      <span class="stat-value" id="stat-total-users">0</span>
+      <span class="stat-label">Total Registered</span>
+    </div>
+    <div class="stat-box">
+      <span class="stat-value" id="stat-verified-users">0</span>
+      <span class="stat-label">Email Verified</span>
+    </div>
+    <div class="stat-box">
+      <span class="stat-value" id="stat-total-projects">0</span>
+      <span class="stat-label">Video Projects</span>
+    </div>
+  </div>
+
+  <div class="stats-table-header">
+    <h3>Registered Users Directory</h3>
+    <button id="refresh-stats-btn" class="quiet" type="button" style="font-size:11px;">↻ Refresh</button>
+  </div>
+
+  <div id="stats-users-list" class="stats-users-list"></div>
 </dialog>
 
 <script src="/static/app.js"></script>

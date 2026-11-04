@@ -28,7 +28,7 @@ WHISPER_MODEL = None
 WORDNET_READY = False
 WORD_MEANING_CACHE: dict[str, dict] = {}
 SESSIONS: dict[str, dict] = {}
-PUBLIC_API_PREFIXES = ("/api/auth/", "/api/health", "/api/languages")
+PUBLIC_API_PREFIXES = ("/api/auth/", "/api/health", "/api/languages", "/api/admin/")
 STOP_WORDS = {
     "the", "a", "an", "and", "or", "but", "is", "are", "was", "were", "to", "of", "in", "on", "for",
     "with", "that", "this", "it", "i", "you", "we", "they", "he", "she", "my", "your", "our", "their",
@@ -436,6 +436,61 @@ async def delete_project(project_id: str, request: Request):
     directory = project_dir(project_id)
     shutil.rmtree(directory, ignore_errors=True)
     return {"message": "Project deleted successfully."}
+
+
+@app.get("/api/admin/stats")
+async def get_admin_stats(request: Request):
+    """Returns real-time metrics on logged-in users, registrations, and active projects."""
+    now_iso = datetime.now(timezone.utc).isoformat()
+    with database() as connection:
+        total_users = connection.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        verified_users = connection.execute("SELECT COUNT(*) FROM users WHERE verified = 1").fetchone()[0]
+        
+        # Check active unexpired sessions in database
+        active_sessions = connection.execute(
+            "SELECT COUNT(DISTINCT user_id) FROM sessions WHERE expires_at > ?", (now_iso,)
+        ).fetchone()[0]
+        
+        # Also include any memory sessions
+        memory_logged_in_ids = {u["id"] for u in SESSIONS.values() if "id" in u}
+
+        rows = connection.execute(
+            """
+            SELECT u.id, u.name, u.email, u.verified, u.verified_by, u.created_at,
+                   CASE WHEN s.user_id IS NOT NULL THEN 1 ELSE 0 END AS is_db_logged_in
+            FROM users u
+            LEFT JOIN (SELECT DISTINCT user_id FROM sessions WHERE expires_at > ?) s ON u.id = s.user_id
+            ORDER BY u.created_at DESC
+            """,
+            (now_iso,)
+        ).fetchall()
+
+        users_list = []
+        for r in rows:
+            is_active = bool(r["is_db_logged_in"]) or (r["id"] in memory_logged_in_ids)
+            users_list.append({
+                "id": r["id"],
+                "name": r["name"],
+                "email": r["email"],
+                "verified": bool(r["verified"]),
+                "verified_by": r["verified_by"] or "Email code",
+                "created_at": r["created_at"],
+                "is_logged_in": is_active,
+                "status": "Online (Logged In)" if is_active else "Offline"
+            })
+
+    total_projects = len([p for p in PROJECTS_DIR.iterdir() if p.is_dir()]) if PROJECTS_DIR.is_dir() else 0
+
+    # Total active online count
+    online_count = sum(1 for u in users_list if u["is_logged_in"])
+
+    return {
+        "active_users_logged_in": online_count,
+        "total_registered_users": total_users,
+        "verified_users": verified_users,
+        "total_projects": total_projects,
+        "users": users_list
+    }
 
 
 @app.get("/api/projects/{project_id}/video")

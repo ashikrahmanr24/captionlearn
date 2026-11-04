@@ -825,3 +825,65 @@ $("#history-search")?.addEventListener("input", (e) => {
         renderHistoryList(filtered);
     }
 });
+
+
+// ==========================================================================
+// User Stats & Activity Management
+// ==========================================================================
+
+async function openStatsModal() {
+    const dialog = $("#stats-dialog");
+    if (!dialog) return;
+    dialog.showModal();
+    await loadAdminStats();
+}
+
+async function loadAdminStats() {
+    try {
+        const d = await request("/api/admin/stats", null, "GET");
+        if ($("#stat-active-users")) $("#stat-active-users").textContent = d.active_users_logged_in;
+        if ($("#stat-total-users")) $("#stat-total-users").textContent = d.total_registered_users;
+        if ($("#stat-verified-users")) $("#stat-verified-users").textContent = d.verified_users;
+        if ($("#stat-total-projects")) $("#stat-total-projects").textContent = d.total_projects;
+
+        const container = $("#stats-users-list");
+        if (!container) return;
+        if (!d.users || d.users.length === 0) {
+            container.innerHTML = `<p class="message" style="text-align:center;padding:16px;">No registered users found.</p>`;
+            return;
+        }
+
+        container.innerHTML = d.users.map(u => {
+            const dateStr = u.created_at ? new Date(u.created_at).toLocaleDateString(undefined, {
+                month: "short", day: "numeric", year: "numeric"
+            }) : "Earlier";
+            const onlineBadge = u.is_logged_in
+                ? `<span class="stat-status-badge status-online">● Online Now</span>`
+                : `<span class="stat-status-badge status-offline">Offline</span>`;
+            const verifiedBadge = u.verified
+                ? `<span class="stat-verified-badge" title="Verified via ${u.verified_by}">✓ Verified</span>`
+                : `<span class="stat-unverified-badge">Unverified</span>`;
+
+            return `
+                <div class="stats-user-row">
+                  <div class="stats-user-info">
+                    <span class="stats-user-name">${escapeHtml(u.name || 'User')}</span>
+                    <span class="stats-user-email">${escapeHtml(u.email)}</span>
+                  </div>
+                  <div class="stats-user-meta">
+                    ${verifiedBadge}
+                    <span class="stats-date">${dateStr}</span>
+                    ${onlineBadge}
+                  </div>
+                </div>
+            `;
+        }).join("");
+
+    } catch (err) {
+        console.error("Failed to load user stats", err);
+    }
+}
+
+$("#users-stats-btn")?.addEventListener("click", openStatsModal);
+$("#close-stats")?.addEventListener("click", () => $("#stats-dialog")?.close());
+$("#refresh-stats-btn")?.addEventListener("click", loadAdminStats);
