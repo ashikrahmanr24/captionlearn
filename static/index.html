@@ -332,17 +332,20 @@
 <dialog id="auth">
   <button id="close-auth" class="close" type="button">×</button>
   <div class="tabs">
-    <button data-mode="login" class="active" type="button">Sign in</button>
+    <button data-mode="otp" class="active" type="button">✉️ Sign in with OTP</button>
+    <button data-mode="login" type="button">Password Login</button>
     <button data-mode="register" type="button">Create account</button>
   </div>
   <form id="auth-form">
     <label id="name-row">Name<input id="name" name="name"></label>
-    <label>Email<input id="email" name="email" type="email" required></label>
+    <label>Email<input id="email" name="email" type="email" placeholder="your-email@example.com" required></label>
     <p id="email-help" class="message"></p>
-    <label>Password<input id="password" name="password" type="password" required minlength="8"></label>
-    <button id="show-password" type="button" class="quiet">Show password</button>
-    <i id="strength"></i>
-    <button id="auth-submit" class="primary" type="submit">Sign in</button>
+    <div id="password-row" hidden>
+      <label>Password<input id="password" name="password" type="password" minlength="8"></label>
+      <button id="show-password" type="button" class="quiet">Show password</button>
+      <i id="strength"></i>
+    </div>
+    <button id="auth-submit" class="primary" type="submit">Send 6-digit OTP code →</button>
   </form>
   <p id="auth-message" class="message"></p>
   <section id="code-screen" hidden>

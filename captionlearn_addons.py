@@ -121,6 +121,25 @@ def install(app: Any, ns: dict) -> None:
         if row and row["resend_after"]>datetime.now(timezone.utc).isoformat(): raise HTTPException(429,"Wait 30 seconds before requesting another code.")
         issue_code(email); return {"message":"A new code was sent."}
 
+    @app.post("/api/auth/send-login-otp")
+    async def send_login_otp(request: Request, email: str = Form(...)):
+        rate(request, "send-otp")
+        email = email.strip().lower()
+        if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+            raise HTTPException(422, "Please enter a valid email address.")
+        with db() as c:
+            user = c.execute("SELECT id, name, email FROM users WHERE email=?", (email,)).fetchone()
+            if not user:
+                name = email.split("@")[0].replace(".", " ").title()
+                salt = os.urandom(16)
+                dummy_pwd = secrets.token_urlsafe(16)
+                c.execute(
+                    "INSERT INTO users (name, email, password_hash, salt, created_at, verified, verified_by) VALUES (?,?,?,?,?,?,?)",
+                    (name, email, hash_password(dummy_pwd, salt), salt.hex(), datetime.now(timezone.utc).isoformat(), 0, "Email OTP")
+                )
+        issue_code(email)
+        return {"needs_verification": True, "message": f"6-digit login OTP code sent to {email}. It expires in 10 minutes."}
+
     @app.post("/api/auth/verify-email")
     async def verify(request: Request, email: str=Form(...), code: str=Form(...)):
         rate(request,"verify"); email=email.strip().lower()
@@ -130,7 +149,23 @@ def install(app: Any, ns: dict) -> None:
             if row["attempts"]>=5: raise HTTPException(429,"Too many incorrect codes. Request a new code.")
             if not hmac.compare_digest(row["code_hash"],hashlib.sha256(code.encode()).hexdigest()): c.execute("UPDATE email_codes SET attempts=attempts+1 WHERE email=?",(email,)); raise HTTPException(422,"That code is not correct.")
             c.execute("UPDATE users SET verified=1,verified_by='Email code' WHERE email=?",(email,)); c.execute("DELETE FROM email_codes WHERE email=?",(email,))
-        return {"message":"Email verified. You can now sign in."}
+            user = c.execute("SELECT id, name, email, verified_by FROM users WHERE email=?", (email,)).fetchone()
+        
+        if not user:
+            raise HTTPException(404, "User record not found.")
+
+        # Log the user in directly upon successful OTP verification!
+        token = secrets.token_urlsafe(32)
+        expiry = datetime.now(timezone.utc) + timedelta(hours=8)
+        with db() as c:
+            c.execute("INSERT OR REPLACE INTO sessions VALUES (?,?,?)", (hashlib.sha256(token.encode()).hexdigest(), user["id"], expiry.isoformat()))
+        
+        response = JSONResponse({
+            "message": "Email verified! You are now logged in.",
+            "user": {"id": user["id"], "name": user["name"], "email": user["email"], "verified_by": user["verified_by"]}
+        })
+        response.set_cookie("captionlearn_session", token, httponly=True, samesite="lax", max_age=28800)
+        return response
 
     @app.post("/api/auth/login")
     async def login(request: Request, email: str=Form(...), password: str=Form(...)):

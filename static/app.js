@@ -24,11 +24,33 @@ async function request(url, body, method = "POST") {
     return d;
 }
 
-function auth(kind = "login") {
+function auth(kind = "otp") {
     mode = kind;
-    $("#auth").showModal();
-    $("#name-row").hidden = kind === "login";
-    $("#auth-submit").textContent = kind === "login" ? "Sign in" : "Create account";
+    const dlg = $("#auth");
+    if (!dlg) return;
+    if (!dlg.open) {
+        dlg.showModal();
+    }
+    const form = $("#auth-form");
+    if (form) form.hidden = false;
+    const codeScreen = $("#code-screen");
+    if (codeScreen) codeScreen.hidden = true;
+    const authMsg = $("#auth-message");
+    if (authMsg) authMsg.textContent = "";
+
+    const nameRow = $("#name-row");
+    if (nameRow) nameRow.hidden = (kind !== "register");
+
+    const pwdRow = $("#password-row");
+    if (pwdRow) pwdRow.hidden = (kind === "otp");
+
+    const submitBtn = $("#auth-submit");
+    if (submitBtn) {
+        if (kind === "otp") submitBtn.textContent = "Send 6-digit OTP code →";
+        else if (kind === "login") submitBtn.textContent = "Sign in";
+        else submitBtn.textContent = "Create account";
+    }
+
     document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("active", b.dataset.mode === kind));
 }
 
@@ -337,7 +359,13 @@ $("#auth-form").onsubmit = async e => {
     e.preventDefault();
     try {
         const data = new FormData(e.target);
-        if (mode === "register") {
+        if (mode === "otp") {
+            const d = await request("/api/auth/send-login-otp", new URLSearchParams({ email: data.get("email") }));
+            window.verifyEmail = data.get("email");
+            $("#auth-form").hidden = true;
+            $("#code-screen").hidden = false;
+            $("#auth-message").textContent = d.message;
+        } else if (mode === "register") {
             const d = await request("/api/auth/register", data);
             if (d.needs_verification) {
                 window.verifyEmail = data.get("email");
@@ -362,15 +390,15 @@ $("#auth-form").onsubmit = async e => {
 
 $("#verify-code").onclick = async () => {
     try {
-        await request("/api/auth/verify-email", new URLSearchParams({
+        const d = await request("/api/auth/verify-email", new URLSearchParams({
             email: window.verifyEmail,
             code: [...$("#code-boxes").children].map(x => x.value).join("")
         }));
         $("#code-screen").hidden = true;
         $("#auth-form").hidden = false;
-        auth();
-        $("#email").value = window.verifyEmail;
-        $("#auth-message").textContent = "Email verified. Please sign in.";
+        $("#auth").close();
+        await refresh();
+        showNotification(d.message || "Verified successfully! Welcome to CaptionLearn.");
     } catch (x) {
         $("#auth-message").textContent = x.message;
     }
