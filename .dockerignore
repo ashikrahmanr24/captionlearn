@@ -1,0 +1,11 @@
+__pycache__
+*.pyc
+*.pyo
+.git
+.gitignore
+.env
+work/captionlearn-projects/*
+work/captionlearn-users.db
+tests
+scratch
+.pytest_cache

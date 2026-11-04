@@ -1,0 +1,19 @@
+# Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Uploaded media and database
+work/
+outputs/
+write-probe/
+*.zip
+*.mp4
+*.wav
+
+# Secrets and cache
+.env
+__pycache__/
+*.py[cod]
+.pytest_cache/

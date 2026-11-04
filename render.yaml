@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: captionlearn
+    env: docker
+    dockerfilePath: Dockerfile
+    plan: free
+    region: oregon
+    envVars:
+      - key: PORT
+        value: 8080

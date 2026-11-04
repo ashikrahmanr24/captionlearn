@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200" viewBox="0 0 300 200" fill="none">
+  <rect width="300" height="200" fill="#F1F5F9"/>
+  <rect x="110" y="60" width="80" height="60" rx="12" fill="#E2E8F0" stroke="#CBD5E1" stroke-width="2"/>
+  <circle cx="150" cy="85" r="14" fill="#94A3B8"/>
+  <path d="M125 110C130 98 140 98 145 110" stroke="#94A3B8" stroke-width="3" stroke-linecap="round"/>
+  <path d="M142 110C148 102 158 102 165 110" stroke="#94A3B8" stroke-width="3" stroke-linecap="round"/>
+  <text x="150" y="145" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12" font-weight="600" fill="#64748B">Item Photograph</text>
+</svg>

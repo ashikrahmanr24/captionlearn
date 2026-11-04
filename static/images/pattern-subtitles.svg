@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160">
+  <defs>
+    <style>
+      .icon { fill: none; stroke: #00f5a0; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; opacity: 0.12; }
+      .solid { fill: #00f5a0; opacity: 0.08; }
+      .accent { fill: none; stroke: #34d399; stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; opacity: 0.10; }
+    </style>
+  </defs>
+
+  <!-- Video Screen with Play Button -->
+  <g transform="translate(16, 16)">
+    <rect class="icon" x="0" y="0" width="36" height="24" rx="4" />
+    <polygon class="solid" points="14,7 24,12 14,17" />
+    <line class="icon" x1="6" y1="20" x2="30" y2="20" stroke-width="2" />
+  </g>
+
+  <!-- Closed Captions [CC] Badge -->
+  <g transform="translate(100, 20)">
+    <rect class="icon" x="0" y="0" width="34" height="22" rx="4" />
+    <path class="icon" d="M13,8 A4,4 0 0,0 8,11 A4,4 0 0,0 13,14" />
+    <path class="icon" d="M24,8 A4,4 0 0,0 19,11 A4,4 0 0,0 24,14" />
+  </g>
+
+  <!-- Sound Waves (Speech Audio) -->
+  <g transform="translate(24, 75)">
+    <line class="accent" x1="0" y1="12" x2="0" y2="18" stroke-width="2" />
+    <line class="accent" x1="5" y1="7" x2="5" y2="23" stroke-width="2" />
+    <line class="accent" x1="10" y1="2" x2="10" y2="28" stroke-width="2" />
+    <line class="accent" x1="15" y1="8" x2="15" y2="22" stroke-width="2" />
+    <line class="accent" x1="20" y1="13" x2="20" y2="17" stroke-width="2" />
+  </g>
+
+  <!-- Open Learning Book / Dictionary -->
+  <g transform="translate(95, 75)">
+    <path class="icon" d="M3,5 C8,2 14,2 19,5 C24,2 30,2 35,5 L35,26 C30,23 24,23 19,26 C14,23 8,23 3,26 Z" />
+    <line class="icon" x1="19" y1="5" x2="19" y2="26" />
+    <line class="accent" x1="7" y1="11" x2="15" y2="11" />
+    <line class="accent" x1="7" y1="16" x2="14" y2="16" />
+    <line class="accent" x1="23" y1="11" x2="31" y2="11" />
+    <line class="accent" x1="24" y1="16" x2="31" y2="16" />
+  </g>
+
+  <!-- Film Strip Segment -->
+  <g transform="translate(20, 125)">
+    <rect class="icon" x="0" y="0" width="38" height="20" rx="3" />
+    <line class="icon" x1="0" y1="5" x2="38" y2="5" />
+    <line class="icon" x1="0" y1="15" x2="38" y2="15" />
+    <rect class="solid" x="4" y="1" width="4" height="3" />
+    <rect class="solid" x="12" y="1" width="4" height="3" />
+    <rect class="solid" x="20" y="1" width="4" height="3" />
+    <rect class="solid" x="28" y="1" width="4" height="3" />
+    <rect class="solid" x="4" y="16" width="4" height="3" />
+    <rect class="solid" x="12" y="16" width="4" height="3" />
+    <rect class="solid" x="20" y="16" width="4" height="3" />
+    <rect class="solid" x="28" y="16" width="4" height="3" />
+  </g>
+
+  <!-- Speech Bubble with Subtitle Text -->
+  <g transform="translate(105, 120)">
+    <path class="icon" d="M4,4 L30,4 A4,4 0 0,1 34,8 L34,18 A4,4 0 0,1 30,22 L14,22 L8,27 L8,22 L4,22 A4,4 0 0,1 0,18 L0,8 A4,4 0 0,1 4,4 Z" />
+    <line class="accent" x1="6" y1="11" x2="26" y2="11" stroke-width="1.8" />
+    <line class="accent" x1="6" y1="15" x2="18" y2="15" stroke-width="1.8" />
+  </g>
+
+  <!-- Sparkle / Idea Star -->
+  <path class="solid" d="M68,48 Q68,54 74,54 Q68,54 68,60 Q68,54 62,54 Q68,54 68,48 Z" />
+  <path class="solid" d="M64,136 Q64,140 68,140 Q64,140 64,144 Q64,140 60,140 Q64,140 64,136 Z" />
+</svg>
