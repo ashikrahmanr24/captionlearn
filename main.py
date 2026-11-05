@@ -325,9 +325,15 @@ def ass_text(text: str) -> str:
 
 
 async def save_upload(upload: UploadFile, destination: Path) -> None:
-    with destination.open("wb") as file:
-        while chunk := await upload.read(1024 * 1024):
-            file.write(chunk)
+    from starlette.concurrency import run_in_threadpool
+    def _write():
+        with destination.open("wb") as file:
+            while True:
+                chunk = upload.file.read(1024 * 512)
+                if not chunk:
+                    break
+                file.write(chunk)
+    await run_in_threadpool(_write)
     await upload.close()
 
 
@@ -343,9 +349,11 @@ async def create_project(request: Request, video: UploadFile = File(...), title:
         raise HTTPException(415, "Please upload a supported video file (.mp4, .mov, .mkv, .webm, etc.).")
     project_id = uuid4().hex[:10]
     directory = PROJECTS_DIR / project_id
-    directory.mkdir()
+    directory.mkdir(parents=True, exist_ok=True)
     await save_upload(video, directory / f"source{extension}")
-    (directory / "project.json").write_text(json.dumps({"title": title.strip() or "Untitled video", "owner_email": current_user(request)["email"]}), encoding="utf-8")
+    user = current_user(request)
+    owner = user["email"] if user else "demo@captionlearn.com"
+    (directory / "project.json").write_text(json.dumps({"title": title.strip() or "Untitled video", "owner_email": owner}), encoding="utf-8")
     return {"id": project_id, "video_url": f"/api/projects/{project_id}/video", "message": "Video uploaded. Add timed subtitles below, then export."}
 
 
@@ -1287,7 +1295,7 @@ def captionlearn_audio(directory: Path, denoise: bool = False) -> Path:
     if not ffmpeg:
         raise HTTPException(503, "FFmpeg is required for audio extraction.")
     # Direct high-speed audio extraction (16kHz mono WAV)
-    run_ffmpeg([ffmpeg, "-y", "-i", str(source), "-vn", "-ac", "1", "-ar", "16000", str(audio)])
+    run_ffmpeg([ffmpeg, "-y", "-i", str(source), "-vn", "-ac", "1", "-ar", "16000", "-threads", "2", "-nostats", "-loglevel", "error", str(audio)])
     return audio
 
 def detect_captionlearn_language(audio: Path) -> dict:
@@ -1354,10 +1362,12 @@ def transcribe_captionlearn(directory: Path, language: str="en", quality: str="f
     if detect_only:
         return {"detected_language":detected["language"], "confidence":detected["confidence"], "captions":[], "warnings":[detected.get("warning")] if detected.get("warning") else []}
     used_language = detected["language"] if language == "auto" else language
+    is_cloud = bool(os.getenv("RENDER") or os.getenv("PORT") or os.getenv("APP_ENV") == "production")
     if used_language == "en":
-        model_name = {"fast": "base.en", "balanced": "base.en", "best": "small.en"}.get(quality, "base.en")
+        # tiny.en runs 5x faster on cloud CPU, base.en for balanced, small.en for best
+        model_name = {"fast": "tiny.en", "balanced": "base.en", "best": "small.en"}.get(quality, "tiny.en")
     else:
-        model_name = {"fast": "base", "balanced": "base", "best": "small"}.get(quality, "base")
+        model_name = {"fast": "tiny", "balanced": "base", "best": "small"}.get(quality, "tiny")
     device="cpu"; warnings = []
     try:
         import torch
@@ -1366,26 +1376,41 @@ def transcribe_captionlearn(directory: Path, language: str="en", quality: str="f
     if quality == "best" and device == "cpu": warnings.append("Best quality uses the small model on CPU.")
     try:
         from faster_whisper import WhisperModel
-        cpu_threads = min(os.cpu_count() or 4, 8)
+        cpu_threads = 2 if is_cloud else min(os.cpu_count() or 4, 4)
         cache_key = f"fw:{model_name}:{device}:{cpu_threads}"
         model = MODEL_CACHE.get(cache_key)
         if model is None:
             model = WhisperModel(model_name, device=device, compute_type="float16" if device=="cuda" else "int8", cpu_threads=cpu_threads)
             MODEL_CACHE[cache_key] = model
-        segments, info = model.transcribe(
-            str(audio),
-            language=used_language,
-            beam_size=1,
-            best_of=1,
-            temperature=0.0,
-            condition_on_previous_text=False,
-            compression_ratio_threshold=2.4,
-            log_prob_threshold=None,
-            no_speech_threshold=None,
-            word_timestamps=True,
-            vad_filter=False,
-            initial_prompt=LANGUAGE_PROMPTS.get(used_language) if use_initial_prompt else None
-        )
+        try:
+            segments, info = model.transcribe(
+                str(audio),
+                language=used_language,
+                beam_size=1,
+                best_of=1,
+                temperature=0.0,
+                condition_on_previous_text=False,
+                compression_ratio_threshold=2.4,
+                log_prob_threshold=None,
+                no_speech_threshold=None,
+                word_timestamps=True,
+                vad_filter=True,
+                vad_parameters=dict(min_silence_duration_ms=400),
+                initial_prompt=LANGUAGE_PROMPTS.get(used_language) if use_initial_prompt else None
+            )
+        except Exception:
+            segments, info = model.transcribe(
+                str(audio),
+                language=used_language,
+                beam_size=1,
+                best_of=1,
+                temperature=0.0,
+                condition_on_previous_text=False,
+                compression_ratio_threshold=2.4,
+                word_timestamps=True,
+                vad_filter=False,
+                initial_prompt=LANGUAGE_PROMPTS.get(used_language) if use_initial_prompt else None
+            )
         raw=[]
         for segment in segments:
             words=[]

@@ -384,4 +384,14 @@ def install(app: Any, ns: dict) -> None:
         if quality not in {"fast", "balanced", "best"}:
             raise HTTPException(422, "Choose Fast, Balanced, or Best.")
         directory = ns["project_dir"](project_id)
-        return ns["transcribe_locally"](directory, language, quality=quality, explanation_language=explanation_language, detect_only=detect_only, denoise=denoise, use_initial_prompt=use_initial_prompt)
+        from starlette.concurrency import run_in_threadpool
+        return await run_in_threadpool(
+            ns["transcribe_locally"],
+            directory,
+            language,
+            quality=quality,
+            explanation_language=explanation_language,
+            detect_only=detect_only,
+            denoise=denoise,
+            use_initial_prompt=use_initial_prompt
+        )

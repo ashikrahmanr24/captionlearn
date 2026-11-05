@@ -16,8 +16,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Pre-download NLTK wordnet & POS tagger models
 RUN python -c "import nltk; nltk.download('wordnet', quiet=True); nltk.download('omw-1.4', quiet=True); nltk.download('averaged_perceptron_tagger_eng', quiet=True); nltk.download('averaged_perceptron_tagger', quiet=True); nltk.download('punkt', quiet=True); nltk.download('punkt_tab', quiet=True)"
 
-# Pre-download the faster-whisper base.en model into the image for instant startup
-RUN python -c "from faster_whisper import WhisperModel; WhisperModel('base.en', device='cpu', compute_type='int8')"
+# Pre-download both tiny.en and base.en faster-whisper models into the image for zero-wait startup
+RUN python -c "from faster_whisper import WhisperModel; WhisperModel('tiny.en', device='cpu', compute_type='int8'); WhisperModel('base.en', device='cpu', compute_type='int8')"
 
 # Copy application code
 COPY . .
