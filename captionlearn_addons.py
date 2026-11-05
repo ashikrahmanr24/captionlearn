@@ -53,6 +53,15 @@ def install(app: Any, ns: dict) -> None:
         columns = {row[1] for row in c.execute("PRAGMA table_info(users)")}
         if "verified" not in columns: c.execute("ALTER TABLE users ADD COLUMN verified INTEGER NOT NULL DEFAULT 1")
         if "verified_by" not in columns: c.execute("ALTER TABLE users ADD COLUMN verified_by TEXT DEFAULT 'Legacy local account'")
+        # Ensure default pre-verified demo account exists on every deploy
+        demo = c.execute("SELECT 1 FROM users WHERE email='demo@captionlearn.com'").fetchone()
+        if not demo:
+            d_salt = os.urandom(16)
+            d_hash = hashlib.pbkdf2_hmac("sha256", "CaptionLearn2026!".encode(), d_salt, 310000).hex()
+            c.execute(
+                "INSERT INTO users (name, email, password_hash, salt, created_at, verified, verified_by) VALUES (?,?,?,?,?,?,?)",
+                ("CaptionLearn Demo User", "demo@captionlearn.com", d_hash, d_salt.hex(), datetime.now(timezone.utc).isoformat(), 1, "Pre-verified Demo Account")
+            )
 
     def current_user(request: Request):
         token = request.cookies.get("captionlearn_session")
