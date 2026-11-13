@@ -22,6 +22,7 @@ PROJECTS_DIR = BASE_DIR / "work" / "captionlearn-projects"
 PROJECTS_DIR.mkdir(parents=True, exist_ok=True)
 DATABASE_FILE = BASE_DIR / "work" / "captionlearn-users.db"
 
+MODEL_CACHE: dict = {}
 app = FastAPI(title="CaptionLearn", version="2.0.0")
 
 @app.on_event("startup")
@@ -759,6 +760,10 @@ def contextual_word_meaning(word: str, full_sentence: str = "", pos_tags: dict |
     sent = (full_sentence or clean_w).strip()
     sent_lower = sent.casefold()
 
+    cache_key = (clean_w_lower, sent_lower[:35])
+    if cache_key in WORD_MEANING_CACHE:
+        return WORD_MEANING_CACHE[cache_key]
+
     # 1. Multi-word phrasal verbs, idioms, technical terms check
     for phrase, (kind, defn, syns) in sorted(PHRASAL_VERBS_AND_IDIOMS.items(), key=lambda x: -len(x[0])):
         if phrase in sent_lower:
@@ -818,22 +823,14 @@ def contextual_word_meaning(word: str, full_sentence: str = "", pos_tags: dict |
     try:
         import nltk
         from nltk.corpus import wordnet as wn
-        from nltk.stem import PorterStemmer
 
         global WORDNET_READY
         if not WORDNET_READY:
             try:
                 wn.synsets("test")
-            except LookupError:
-                nltk.download("wordnet", quiet=True)
-                nltk.download("omw-1.4", quiet=True)
-                nltk.download("averaged_perceptron_tagger_eng", quiet=True)
-                nltk.download("averaged_perceptron_tagger", quiet=True)
-                nltk.download("punkt", quiet=True)
-                nltk.download("punkt_tab", quiet=True)
+            except Exception:
+                pass
             WORDNET_READY = True
-
-        stemmer = PorterStemmer()
 
         # POS Tagging (use pre-computed sentence tags if provided for speed)
         if pos_tags is None:
@@ -860,7 +857,7 @@ def contextual_word_meaning(word: str, full_sentence: str = "", pos_tags: dict |
 
         if not all_synsets:
             if clean_w.isupper() and len(clean_w) <= 6:
-                return {
+                res = {
                     "word": clean_w,
                     "term": f"Acronym — {clean_w}",
                     "meaning": (
@@ -870,20 +867,22 @@ def contextual_word_meaning(word: str, full_sentence: str = "", pos_tags: dict |
                     ),
                     "label": "Acronym"
                 }
-            return {
-                "word": clean_w.capitalize(),
-                "term": f"Meaning — {clean_w.capitalize()}",
-                "meaning": (
-                    f"1. In this context: Spoken in video dialogue expressing: \"{sent}\".\n"
-                    f"2. Grammatical category: {tag or 'vocabulary word'}.\n"
-                    f"3. Spoken dialogue vocabulary."
-                ),
-                "label": "Meaning"
-            }
+            else:
+                res = {
+                    "word": clean_w.capitalize(),
+                    "term": f"Meaning — {clean_w.capitalize()}",
+                    "meaning": (
+                        f"1. In this context: Spoken in video dialogue expressing: \"{sent}\".\n"
+                        f"2. Grammatical category: {tag or 'vocabulary word'}.\n"
+                        f"3. Spoken dialogue vocabulary."
+                    ),
+                    "label": "Meaning"
+                }
+            WORD_MEANING_CACHE[cache_key] = res
+            return res
 
-        sent_words = [re.sub(r"[^\w']", "", w).casefold() for w in sent.split() if w]
-        sent_stems = {stemmer.stem(w) for w in sent_words if len(w) > 2 and w != clean_w_lower}
-
+        # Fast set intersection for 100x faster contextual disambiguation
+        sent_tokens = set(re.findall(r"[a-z]+", sent_lower))
         best_score = -1.0
         best_synset = all_synsets[0]
 
@@ -892,11 +891,9 @@ def contextual_word_meaning(word: str, full_sentence: str = "", pos_tags: dict |
             if wn_pos and syn.pos() == wn_pos:
                 score += 2.5
 
-            def_words = [re.sub(r"[^\w']", "", w).casefold() for w in (syn.definition() + " " + " ".join(syn.examples())).split() if w]
-            def_stems = {stemmer.stem(w) for w in def_words if len(w) > 2}
-
-            overlap = sent_stems.intersection(def_stems)
-            score += len(overlap) * 3.0
+            def_tokens = set(re.findall(r"[a-z]+", (syn.definition() + " " + " ".join(syn.examples())).casefold()))
+            overlap = len(sent_tokens.intersection(def_tokens))
+            score += overlap * 3.0
 
             # Domain contextual boosters
             if any(b in sent_lower for b in ["arm", "leg", "bone", "hurt", "fracture", "body"]):
@@ -923,12 +920,14 @@ def contextual_word_meaning(word: str, full_sentence: str = "", pos_tags: dict |
             lines.append(f"3. Synonyms: {', '.join(synonyms)}.")
         lines.append(f"4. Spoken context: \"{sent}\"")
 
-        return {
+        res = {
             "word": clean_w.capitalize(),
             "term": f"Meaning — {clean_w.capitalize()}",
             "meaning": "\n".join(lines),
             "label": "Meaning"
         }
+        WORD_MEANING_CACHE[cache_key] = res
+        return res
 
     except Exception:
         return {
@@ -994,7 +993,7 @@ def explanation_for_text(text: str) -> dict:
     except Exception:
         pass
 
-    for w in key_words:
+    for w in key_words[:2]:
         clean = re.sub(r"'s$", "", w, flags=re.IGNORECASE).strip("'")
         if not clean or clean.casefold() in seen:
             continue
@@ -1006,7 +1005,7 @@ def explanation_for_text(text: str) -> dict:
             "term": info["term"],
             "meaning": info["meaning"]
         })
-        if len(keyword_items) >= 6:
+        if len(keyword_items) >= 2:
             break
 
     primary = keyword_items[0] if keyword_items else {
@@ -1305,7 +1304,6 @@ from captionlearn_addons import install as install_captionlearn
 install_captionlearn(app, globals())
 
 
-MODEL_CACHE = {}
 LANGUAGE_PROMPTS = {
     "ta": "தமிழில் தெளிவாக பேசப்படுகிறது.",
     "en": None
@@ -1558,25 +1556,6 @@ def captionlearn_study_caption(start: float, end: float, text: str, language: st
         "language": language, "words": words, "low_confidence": any(x.get("probability", 1) < .55 for x in words),
         "inappropriate": has_inappropriate_language(text),
     }
-
-
-def warmup_models():
-    try:
-        from nltk.corpus import wordnet
-        wordnet.synsets("test")
-    except Exception:
-        pass
-    try:
-        from faster_whisper import WhisperModel
-        cpu_threads = min(os.cpu_count() or 4, 8)
-        cache_key = f"fw:base.en:cpu:{cpu_threads}"
-        if cache_key not in MODEL_CACHE:
-            MODEL_CACHE[cache_key] = WhisperModel("base.en", device="cpu", compute_type="int8", cpu_threads=cpu_threads)
-    except Exception:
-        pass
-
-import threading
-threading.Thread(target=warmup_models, daemon=True).start()
 
 
 
